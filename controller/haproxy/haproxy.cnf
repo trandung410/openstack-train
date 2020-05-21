@@ -1,0 +1,187 @@
+global
+    log                     127.0.0.1 local2
+    log /dev/log            local0
+    log /dev/log            local1 notice
+    chroot                  /var/lib/haproxy
+    stats                   timeout 30s
+    user                    haproxy
+    group                   haproxy
+    daemon
+    maxconn                 10000
+
+defaults
+    mode                    http
+    log                     global
+    #option                 httplog
+    option                  dontlognull
+    option                  http-server-close
+    #option forwardfor      except 127.0.0.0/8
+    option                  redispatch
+    retries                 3
+    timeout http-request    5000
+    timeout queue           5000
+    timeout connect         5000
+    timeout client          50000
+    timeout server          50000
+    timeout http-keep-alive 5000
+    timeout check           5000
+
+listen STATUS
+    bind 10.10.12.150:9000
+    mode http
+    stats enable
+    stats uri /stats
+    stats realm HAProxy\ Statistics
+    stats auth admin:openstack
+
+listen DASHBOARD 
+    bind 10.10.12.150:443 ssl crt /glxplay/ssl/glxplay.io.pem no-sslv3 ciphers RC4:HIGH:!EXP:!LOW:!RC2:!3DES:!SEED:!aNULL:!eNULL:!MD5:!EDH
+    balance source
+    mode http
+    cookie SERVERID insert indirect nocache
+    option tcplog
+    timeout connect 5000
+    timeout client  50000
+    timeout server  50000
+    server controller01 10.10.12.147:9443 check inter 2000 rise 2 fall 5 ssl verify none 
+    server controller02 10.10.12.148:9443 check inter 2000 rise 2 fall 5 ssl verify none
+    server controller03 10.10.12.149:9443 check inter 2000 rise 2 fall 5 ssl verify none
+
+listen NOVA_VNCPROXY 
+    bind 10.10.12.150:6080 ssl crt /glxplay/ssl/glxplay.io.pem no-sslv3 ciphers RC4:HIGH:!EXP:!LOW:!RC2:!3DES:!SEED:!aNULL:!eNULL:!MD5:!EDH
+    balance  source
+    option  tcpka
+    option  tcplog
+    server controller01 10.10.12.147:6081 check inter 2000 rise 2 fall 5 ssl verify none 
+    server controller02 10.10.12.148:6081 check inter 2000 rise 2 fall 5 ssl verify none
+    server controller03 10.10.12.149:6081 check inter 2000 rise 2 fall 5 ssl verify none
+
+listen RabbitMQ-CLUSTER
+    bind 10.10.12.150:5673
+    timeout client  3h
+    timeout server  3h
+    mode tcp
+    option tcpka
+    option redispatch
+    option clitcpka
+    balance roundrobin
+    server controller01 10.10.12.147:5672 check inter 5000 downinter 500
+    server controller02 10.10.12.148:5672 check inter 5000 downinter 500
+    server controller03 10.10.12.149:5672 check inter 5000 downinter 500
+
+listen GALERA
+    bind 10.10.12.150:3306
+    balance source
+    mode tcp
+    option tcpka
+    option tcplog
+    option clitcpka
+    option srvtcpka
+    timeout client 28801s
+    timeout server 28801s
+    #option mysql-check user haproxy
+    server controller01 10.10.12.147:3307 check inter 5s fastinter 2s rise 3 fall 3 backup
+    server controller02 10.10.12.148:3307 check inter 5s fastinter 2s rise 3 fall 3 backup
+    server controller03 10.10.12.149:3307 check inter 5s fastinter 2s rise 3 fall 3 
+
+listen ETCD
+    bind 10.10.12.150:2479
+    balance  source
+    option  tcpka
+    option  httpchk
+    option  tcplog
+    server controller01 10.10.12.147:2379 check inter 1s rise 2 fall 5 backup
+    server controller02 10.10.12.148:2379 check inter 1s rise 2 fall 5 backup
+    server controller03 10.10.12.149:2379 check inter 1s rise 2 fall 5
+
+listen MEMCACHED
+    bind 10.10.12.150:11212
+    balance source
+    mode tcp
+    server controller01 10.10.12.147:11211 check inter 1s rise 2 fall 5 backup
+    server controller02 10.10.12.148:11211 check inter 1s rise 2 fall 5 backup
+    server controller03 10.10.12.149:11211 check inter 1s rise 2 fall 5 
+
+
+listen KEYSTONE-PUBLIC
+    bind 10.10.12.150:5000
+    balance source
+    option tcpka
+    option httpchk
+    server controller01 10.10.12.147:5001 check inter 1s rise 2 fall 5 backup
+    server controller02 10.10.12.148:5001 check inter 1s rise 2 fall 5 backup
+    server controller03 10.10.12.149:5001 check inter 1s rise 2 fall 5 
+
+listen GLANCE-API
+    bind 10.10.12.150:9292
+    balance source
+    option tcpka
+    option httpchk
+    server controller01 10.10.12.147:9293 check inter 1s rise 2 fall 5 backup
+    server controller02 10.10.12.148:9293 check inter 1s rise 2 fall 5 backup
+    server controller03 10.10.12.149:9293 check inter 1s rise 2 fall 5 
+
+listen CINDER-API
+    bind 10.10.12.150:8776
+    balance source
+    option tcpka
+    option httpchk
+    server controller01 10.10.12.147:8783 check inter 1s rise 2 fall 5 backup
+    server controller02 10.10.12.148:8783 check inter 1s rise 2 fall 5 backup
+    server controller03 10.10.12.149:8783 check inter 1s rise 2 fall 5
+
+listen PLACEMENT
+    bind 10.10.12.150:8778
+    balance source
+    mode tcp
+    server controller01 10.10.12.147:8779 check inter 1s rise 2 fall 5 backup
+    server controller02 10.10.12.148:8779 check inter 1s rise 2 fall 5 backup
+    server controller03 10.10.12.149:8779 check inter 1s rise 2 fall 5 
+
+listen NOVA-COMPUTE-API
+    bind 10.10.12.150:8774
+    balance source
+    option tcpka
+    option httpchk
+    server controller01 10.10.12.147:8781 check inter 1s rise 2 fall 5 backup
+    server controller02 10.10.12.148:8781 check inter 1s rise 2 fall 5 backup
+    server controller03 10.10.12.149:8781 check inter 1s rise 2 fall 5 
+
+listen NOVA-METADATA-API
+    bind 10.10.12.150:8775
+    balance source
+    option tcpka
+    option httpchk
+    server controller01 10.10.12.147:8782 check inter 1s rise 2 fall 5 backup
+    server controller02 10.10.12.148:8782 check inter 1s rise 2 fall 5 backup
+    server controller03 10.10.12.149:8782 check inter 1s rise 2 fall 5 
+
+listen NEUTRON-API 
+    bind 10.10.12.150:9696
+    balance  source
+    option  tcpka
+    option  httpchk
+    option  tcplog
+    server controller01 10.10.12.147:9697 check inter 1s rise 2 fall 5 backup
+    server controller02 10.10.12.148:9697 check inter 1s rise 2 fall 5 backup
+    server controller03 10.10.12.149:9697 check inter 1s rise 2 fall 5 
+
+listen GNOCCHI
+    bind 10.10.12.150:8041
+    balance  source
+    option  tcpka
+    option  httpchk
+    option  tcplog
+    server controller01 10.10.12.147:8051 check inter 1s rise 2 fall 5 backup
+    server controller02 10.10.12.148:8051 check inter 1s rise 2 fall 5 backup
+    server controller03 10.10.12.149:8051 check inter 1s rise 2 fall 5 
+
+listen AODH 
+    bind 10.10.12.150:8042
+    balance  source
+    option  tcpka
+    option  httpchk
+    option  tcplog
+    server controller01 10.10.12.147:8052 check inter 1s rise 2 fall 5 backup
+    server controller02 10.10.12.148:8052 check inter 1s rise 2 fall 5 backup
+    server controller03 10.10.12.149:8052 check inter 1s rise 2 fall 5
