@@ -1,6 +1,4 @@
-# Tài liệu đóng images trong OpenStack - tập hợp bởi Cloud team @ Nhân Hòa.
 
-Để đáp ứng nhu cầu hoạt động của hệ thống Cloud OpenStack Nhân Hòa, cần đảm bảo việc các images template được chuẩn bị sẵn sàng cho hoạt đông cung cấp VPS cho khách hàng.
 
 [Chuẩn bị Server KVM để đóng Image](docs/KVM_install.md)
 
